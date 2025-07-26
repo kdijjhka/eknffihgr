@@ -1,14 +1,47 @@
-FROM node:20.11.1-alpine3.19
+name: Build and Push Docker Image
 
-WORKDIR /app
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Dockerfile'
+      - 'app.js'
+      - 'package.json'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
-COPY package.json ./
-COPY app.js ./
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
-EXPOSE 3000
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-RUN apk add --no-cache curl bash && \
-    npm install && \
-    chmod +x app.js
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-CMD ["npm", "start"]
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/bhgduhj6d:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=XHTTP Server
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
